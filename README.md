@@ -6,14 +6,18 @@ is in snake_case in PyRacmacs but otherwise available in a similar fashion. See 
 
 Installation notes:
 If you want to get this running in a conda environment but have R packages installed in your base, the only way for the environment to see the R packages installed 
-in the base seems to be installing rpy2 via pip. Before doing it run "which pip" to make sure it points to the envrionment you want to install this in. Follow
-the further instructions here:
+in the base seems to be installing rpy2 via pip and setting the environment variables correctly before doing so. See:
 
-https://stackoverflow.com/questions/51486081/install-and-use-rpy2-using-conda-so-that-it-uses-default-r-installation-in-us
-
-If it is still not working you can try to diagnose if the installation was correct (such as what Rpath rpy2 uses) by running "python -m rpy2.situation".
-Note that if you already have rpy2 installed via conda and try to uninstall and install it with pip, it seems not to configure the settings as expected. So
-it is advised to start with a fresh environment if you are having issues.
-
-Also see here:
 https://stackoverflow.com/questions/68936589/how-to-select-r-installation-when-using-rpy2-on-conda
+
+1- export LDFLAGS="-Wl,-rpath,/usr/lib/R/lib" (change path to where base R lib is)
+2- pip install rpy2 --force-reinstall --compile --no-binary rpy2
+
+After the installation is complete, you can check by running python -m rpy2.situation. If somewhere in the output it says
+
+Looking for R's HOME:
+    Environment variable R_HOME: None
+    Calling `R RHOME`: /usr/lib/R
+
+Note that installing other R related packages such as r-base might modify this (export R_HOME = /usr/lib/R does not remedy this), in which case
+you need to reinstall rpy2.
