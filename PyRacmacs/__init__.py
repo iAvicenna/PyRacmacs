@@ -18,7 +18,7 @@ from .visual import view
 
 from .comparison import (procrustes_maps, procrustes_data, realign,
                          apply_plotspec, rotate_map, translate_map,
-                         reflect_map)
+                         reflect_map, piecewise_procrustes)
 
 from .merger import merge_maps, merge_tables
 

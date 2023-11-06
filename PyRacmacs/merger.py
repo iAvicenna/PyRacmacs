@@ -11,14 +11,19 @@ from . import RacOptimizerOptions, RacMergeOptions, Racmacs, RacMap
 from .io import capture_r_output
 
 
-def merge_tables(tables:list):
+def merge_tables(tables:list, number_of_dimensions:int, dilution_step_size:int,
+                 merge_args=None):
 
     if len(tables)==1:
         return tables[0]
 
+    if merge_args is None:
+        merge_args = {}
+
     maps = [RacMap(titer_table=table) for table in tables]
 
-    return merge_maps(maps, 2, 1).titer_table
+    return merge_maps(maps, number_of_dimensions, dilution_step_size,
+                      **merge_args).titer_table
 
 
 def merge_maps(maps:list, number_of_dimensions:int, dilution_step_size:int,

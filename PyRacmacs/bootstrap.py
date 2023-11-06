@@ -261,6 +261,3 @@ def _faces_to_adj(faces):
 
 
 # def extract_triangulation_blobs(racmap):
-
-
-#   Takasbank ® Altın Transfer Sistemi

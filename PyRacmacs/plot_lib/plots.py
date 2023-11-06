@@ -9,7 +9,7 @@ Created on Thu Jun 10 22:37:11 2021
 import numpy as np
 import pandas as pd
 import plotly as plotly
-import seaborn as sb
+
 import matplotlib.pyplot as plt
 import PyRacmacs as pr
 
@@ -25,6 +25,12 @@ cm = [cm(i) for i in range(0,20,2)] + [cm(i) for i in range(1,20,2)]
 __all__ = ['interactive_titer_plot_from_racmap', 'box_plot', # titer plots
            'bootstrap_bar', 'bootstrap_agcolored_map', 'bootstrap_agvol_vs_mean_sr_dist' # bootstrap related plots
            ]
+
+try:
+  import seaborn as sb
+except ModuleNotFoundError:
+  __all__.remove("box_plot")
+
 
 def generate_color_categories(categories, return_hex=False):
     """Generate n colors, useful for coloring different categories.
@@ -127,7 +133,6 @@ def box_plot(racmap, groups, group_colors=None, plot_type='sera',
         plt.close(fig)
 
     return fig,ax
-
 
 
 def interactive_titer_plot_from_racmap(racmap, serum_group_ids, y_max=None, antigen_group_ids = None,

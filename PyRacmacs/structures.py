@@ -985,11 +985,6 @@ def _extract_blobs_from_R(map_with_blobs, blob_type, optimization_number=0):
     ag_blobs = {}
     sr_blobs = {}
 
-    if blob_type=="triangulation":
-      ag_tblobs = Racmacs.agTriangulationBlob(map_with_blobs._acmap_R,
-                                            optimization_number+1)
-      sr_tblobs = Racmacs.srTriangulationBlob(map_with_blobs._acmap_R,
-                                            optimization_number+1)
 
     if map_with_blobs.number_of_dimensions==3:
 
@@ -1020,9 +1015,9 @@ def _extract_blobs_from_R(map_with_blobs, blob_type, optimization_number=0):
         sr_blobs[sr] = {}
 
         if blob_type == 'bootstrap':
-          sr_blob = Racmacs.agBootstrapBlob(map_with_blobs._acmap_R, sr)
+          sr_blob = Racmacs.srBootstrapBlob(map_with_blobs._acmap_R, sr)
         elif blob_type == 'triangulation':
-          sr_blob = Racmacs.agTriangulationBlob(map_with_blobs._acmap_R, sr,
+          sr_blob = Racmacs.srTriangulationBlob(map_with_blobs._acmap_R, sr,
                                                 optimization_number+1)
         else:
           raise ValueError("blob_type can only be bootstrap or triangulation "
