@@ -10,14 +10,30 @@ in the base seems to be installing rpy2 via pip and setting the environment vari
 
 https://stackoverflow.com/questions/68936589/how-to-select-r-installation-when-using-rpy2-on-conda
 
-After making sure you have r-base installed in your enviroment, run the following:
+A minimal working example is:
 
+1- Create an enviroment containing pip
 ```
-export LDFLAGS="-Wl,-rpath,/usr/lib/R/lib" (change path to where base R lib is)
+conda create -n env-name pip 
+conda activate env-name
+```
+
+2- Check that which R points to the base R and which R points to env bin
+```
+which R
+usr/bin/R
+which pip
+path_to_env-name/bin/pip
+```
+
+3- export the necessary LDFLAG and install rpy2 via pip from your enviroment:
+```
+export LDFLAGS="-Wl,-rpath,/usr/lib/R/lib"
 pip install rpy2 --force-reinstall --compile --no-binary rpy2
 ```
 
-After the installation is complete, you can check by running python -m rpy2.situation. If somewhere in the output it says
+You can check if the installation was correct by running python -m rpy2.situation.
+If somewhere in the output it says
 
 ```
 Looking for R's HOME:
@@ -26,7 +42,14 @@ Looking for R's HOME:
 ```
 
 you are good to go. Note that re-installing other R related packages such as r-base after this might modify this (export R_HOME = /usr/lib/R does not remedy this), in which case
-you need to reinstall rpy2.
+you need to recreate the environment. If you want to create an environment with more packages changing the first step to 
+
+```
+conda create -n env-name r-base other-packages
+```
+
+seems to work fine too.
+
 
 ## Warning and error notes:
 Some of the warning and error messages returned will directly be from R. An example is when there are disconnected points in a map, you will get the following when you run PyRacmacs optimize on such a map:
