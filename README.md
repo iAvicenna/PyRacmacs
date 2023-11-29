@@ -10,6 +10,8 @@ in the base seems to be installing rpy2 via pip and setting the environment vari
 
 https://stackoverflow.com/questions/68936589/how-to-select-r-installation-when-using-rpy2-on-conda
 
+After making sure you have r-base installed in your enviroment, run the following:
+
 ```
 export LDFLAGS="-Wl,-rpath,/usr/lib/R/lib" (change path to where base R lib is)
 pip install rpy2 --force-reinstall --compile --no-binary rpy2
@@ -23,7 +25,7 @@ Looking for R's HOME:
     Calling `R RHOME`: /usr/lib/R
 ```
 
-you are good to go. Note that installing other R related packages such as r-base might modify this (export R_HOME = /usr/lib/R does not remedy this), in which case
+you are good to go. Note that re-installing other R related packages such as r-base after this might modify this (export R_HOME = /usr/lib/R does not remedy this), in which case
 you need to reinstall rpy2.
 
 ## Warning and error notes:
