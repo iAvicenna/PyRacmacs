@@ -41,8 +41,12 @@ Looking for R's HOME:
     Calling `R RHOME`: /usr/lib/R
 ```
 
-you are good to go. Note that re-installing other R related packages such as r-base after this might modify this (export R_HOME = /usr/lib/R does not remedy this), in which case
-you need to recreate the environment. If you want to create an environment with more packages changing the first step to 
+you are good to go. 
+
+Note that installing other R related packages such as r-base prior to this will result in R RHOME likely pointing to enviroment's bin directory
+and I am not sure how to create such an environment, apart from trying to install r-base afterwards rpy2.
+
+If you want to create an environment with more packages changing the first step to 
 
 ```
 conda create -n env-name r-base other-packages
