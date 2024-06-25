@@ -1,8 +1,8 @@
 # PyRacmacs
-A python interface to Racmacs using rpy2.
+A python interface to [Racmacs](https://acorg.github.io/Racmacs/index.html) using rpy2.
 
 Almost all of the functionalities in Racmacs (and some more) are also available in PyRacmacs. Most properties and functions in Racmacs which would be in camelCase 
-is in snake_case in PyRacmacs but otherwise available in a similar fashion. See examples for extensive tutorials on usage of PyRacmacs.
+is in snake_case in PyRacmacs but otherwise available in a similar fashion. See examples folder for extensive tutorials on usage of PyRacmacs.
 
 ## Installation notes:
 If you want to get this running in a conda environment but have R packages installed in your base, the only way for the environment to see the R packages installed 
