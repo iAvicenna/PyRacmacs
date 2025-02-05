@@ -18,7 +18,7 @@ conda create -n env-name pip
 conda activate env-name
 ```
 
-2- Check that which R points to the base R and which R points to env bin
+2- Check that which R points to the base R and which pip points to env bin
 ```
 which R
 usr/bin/R
