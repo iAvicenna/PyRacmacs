@@ -84,7 +84,7 @@ def make_map_from_table(
         table_R = ro.conversion.py2rpy(titer_table)
 
     acmap_R = Racmacs.acmap(ag_names, sr_names, table_R)
-    acmap_R = conversion.set_dilution_stepsize(acmap_R, 0)
+    acmap_R = conversion.set_dilution_stepsize(acmap_R, dilution_stepsize)
 
     optimized_map_R = Racmacs.optimizeMap(acmap_R, number_of_dimensions=number_of_dimensions,
                                           number_of_optimizations=number_of_optimizations,
@@ -108,6 +108,8 @@ def optimize_map(racmap, number_of_dimensions: int=2,
                  sort_optimizations: bool=True, check_convergence: bool=True,
                  verbose: bool=True, options:RacOptimizerOptions=None):
 
+    _check_table(racmap.titer_table, number_of_dimensions)
+
     if options is None:
         options = {}
 
@@ -119,15 +121,15 @@ def optimize_map(racmap, number_of_dimensions: int=2,
     if titer_weights is None:
         titer_weights = rNULL
     else:
-        titer_weights = ro.FloatVector(titer_weights)
+        ro.numpy2ri.activate()
+        titer_weights = ro.r.matrix(titer_weights, nrow=titer_weights.shape[0],
+                                    ncol=titer_weights.shape[1])
 
     if isinstance(options,dict):
         options = RacOptimizerOptions(**options)
 
 
     stdout, stderr = capture_r_output(verbose, True)
-
-    _check_table(racmap.titer_table, number_of_dimensions)
 
     optimized_map_R = Racmacs.optimizeMap(racmap._acmap_R, number_of_dimensions=number_of_dimensions,
                                           number_of_optimizations=number_of_optimizations,
@@ -139,7 +141,7 @@ def optimize_map(racmap, number_of_dimensions: int=2,
                                           verbose=verbose,
                                           options=options.options_R
                                           )
-
+    ro.numpy2ri.deactivate()
     optimized_racmap = RacMap(optimized_map_R)
 
     return optimized_racmap
@@ -149,11 +151,14 @@ def relax_map(acmap, optimization_number: int=0, fixed_antigens: bool=False,
               fixed_sera: bool=False, titer_weights: list=None,
               verbose=True,  options:RacOptimizerOptions=None):
 
+    _check_table(acmap.titer_table, acmap.number_of_dimensions)
 
     if titer_weights is None:
         titer_weights = rNULL
     else:
-        titer_weights = ro.FloatVector(titer_weights)
+        ro.numpy2ri.activate()
+        titer_weights = ro.r.matrix(titer_weights, nrow=titer_weights.shape[0],
+                                    ncol=titer_weights.shape[1])
 
     if options is None:
         options = {}
@@ -161,7 +166,6 @@ def relax_map(acmap, optimization_number: int=0, fixed_antigens: bool=False,
     if isinstance(options,dict):
         options = RacOptimizerOptions(**options)
 
-    _check_table(acmap.titer_table, acmap.number_of_dimensions)
 
     stdout, stderr = capture_r_output(verbose, True)
 
@@ -171,6 +175,7 @@ def relax_map(acmap, optimization_number: int=0, fixed_antigens: bool=False,
                                      fixed_sera=fixed_sera,
                                      titer_weights=titer_weights,
                                      options=options.options_R)
+    ro.numpy2ri.deactivate()
 
     relaxed_map = RacMap(relaxed_map_R)
 

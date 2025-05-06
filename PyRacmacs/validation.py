@@ -8,11 +8,235 @@ Created on Mon Aug  7 18:38:05 2023
 
 import numpy as np
 import time
-from . import (Racmacs, RacMap, RacOptimizerOptions)
+import itertools as it
+
+from . import (Racmacs, RacMap, RacOptimizerOptions, make_map_from_table,
+               procrustes_data)
 from .model_evaluation_lib.local_utils import DimensionTestSummaryStatistics
 from rpy2 import robjects as ro
 from .io import capture_r_output
 from .utils.conversion import odict_to_dict
+
+
+def leave_pair_out_test(
+    table,
+    dilution_stepsize,
+    number_of_dimensions,
+    number_of_optimizations,
+    serum_list=None,
+    antigen_list=None,
+    remove_sera=True,
+    remove_antigens = True,
+    include_thresholded=False,
+    optimization_args: dict=None,
+    ):
+
+  if optimization_args is None:
+    optimization_args = {}
+
+
+
+
+  fullmap=\
+    make_map_from_table(table, dilution_stepsize=dilution_stepsize,
+                        number_of_dimensions=number_of_dimensions,
+                        number_of_optimizations=number_of_optimizations)
+
+  dif = fullmap.predicted_log_titers() - fullmap.log_titer_table.values
+
+  if include_thresholded:
+    I = fullmap.measured_titer_locations
+  else:
+    I = fullmap.detectable_titer_locations
+
+  serum_to_diagnostics = {None:{"dif_std":np.nanstd(dif[I]), "red_chi2":fullmap.get_red_chi2(1),
+                                "total_rmsd":0
+                                }}
+  antigen_to_diagnostics = {None:{"dif_std":np.nanstd(dif[I]), "red_chi2":fullmap.get_red_chi2(1),
+                                  "total_rmsd":0}}
+  if remove_sera:
+
+    if serum_list is None:
+      serum_list = table.columns
+
+    serum_pairs = it.product(serum_list, serum_list)
+
+
+    for serum0,serum1 in serum_pairs:
+
+      if serum0<=serum1:
+        continue
+
+      cols = [s for s in table.columns if s not in [serum0, serum1]]
+      subtable = table.loc[:, cols]
+
+      submap=\
+        make_map_from_table(subtable, dilution_stepsize=dilution_stepsize,
+                            number_of_dimensions=number_of_dimensions,
+                            number_of_optimizations=number_of_optimizations)
+
+      dif = submap.predicted_log_titers() - submap.log_titer_table.values
+
+      if include_thresholded:
+        I = submap.measured_titer_locations
+      else:
+        I = submap.detectable_titer_locations
+
+
+      proc_data = procrustes_data(submap, fullmap)
+
+      serum_to_diagnostics[(serum0, serum1)] = {}
+
+      serum_to_diagnostics[(serum0, serum1)]["dif_std"] = np.nanstd(dif[I])
+      serum_to_diagnostics[(serum0, serum1)]["red_chi2"] = submap.get_red_chi2(1)
+      serum_to_diagnostics[(serum0, serum1)]["total_rmsd"] = proc_data["total_rmsd"]
+
+
+
+  if remove_antigens:
+
+    if antigen_list is None:
+      antigen_list = table.index
+
+    antigen_pairs = it.product(antigen_list, antigen_list)
+
+    for antigen0,antigen1 in antigen_pairs:
+
+      index = [a for a in table.index if a not in [antigen0, antigen1]]
+      subtable = table.loc[index, :]
+
+      submap=\
+        make_map_from_table(subtable, dilution_stepsize=dilution_stepsize,
+                            number_of_dimensions=number_of_dimensions,
+                            number_of_optimizations=number_of_optimizations)
+
+
+      dif = submap.predicted_log_titers() - submap.log_titer_table.values
+      if include_thresholded:
+        I = submap.measured_titer_locations
+      else:
+        I = submap.detectable_titer_locations
+
+      antigen_to_diagnostics[(antigen0, antigen1)] = {}
+
+      proc_data = procrustes_data(submap, fullmap)
+
+      antigen_to_diagnostics[(antigen0, antigen1)]["dif_std"] = np.nanstd(dif[I])
+      antigen_to_diagnostics[(antigen0, antigen1)]["red_chi2"] = submap.get_red_chi2(1)
+      antigen_to_diagnostics[(antigen0, antigen1)]["total_rmsd"] = proc_data["total_rmsd"]
+
+  diagnostics = {"serum":serum_to_diagnostics,
+                 "antigen":antigen_to_diagnostics}
+
+  return diagnostics
+
+
+
+
+def leave_one_out_test(
+    table,
+    dilution_stepsize,
+    number_of_dimensions,
+    number_of_optimizations,
+    serum_list=None,
+    antigen_list=None,
+    remove_sera=True,
+    remove_antigens = True,
+    include_thresholded=False,
+    optimization_args: dict=None,
+    ):
+
+  if optimization_args is None:
+    optimization_args = {}
+
+
+  fullmap=\
+    make_map_from_table(table, dilution_stepsize=dilution_stepsize,
+                        number_of_dimensions=number_of_dimensions,
+                        number_of_optimizations=number_of_optimizations)
+
+  dif = fullmap.predicted_log_titers() - fullmap.log_titer_table.values
+
+  if include_thresholded:
+    I = fullmap.measured_titer_locations
+  else:
+    I = fullmap.detectable_titer_locations
+
+  serum_to_diagnostics = {None:{"dif_std":np.nanstd(dif[I]), "red_chi2":fullmap.get_red_chi2(1),
+                                "total_rmsd":0
+                                }}
+  antigen_to_diagnostics = {None:{"dif_std":np.nanstd(dif[I]), "red_chi2":fullmap.get_red_chi2(1),
+                                  "total_rmsd":0}}
+
+  if remove_sera:
+
+    if serum_list is None:
+      serum_list = table.columns
+
+    for serum in serum_list:
+
+      cols = [s for s in table.columns if s != serum]
+      subtable = table.loc[:, cols]
+
+      submap=\
+        make_map_from_table(subtable, dilution_stepsize=dilution_stepsize,
+                            number_of_dimensions=number_of_dimensions,
+                            number_of_optimizations=number_of_optimizations)
+
+      dif = submap.predicted_log_titers() - submap.log_titer_table.values
+
+      if include_thresholded:
+        I = submap.measured_titer_locations
+      else:
+        I = submap.detectable_titer_locations
+
+      serum_to_diagnostics[serum] = {}
+
+      proc_data = procrustes_data(submap, fullmap)
+
+
+      serum_to_diagnostics[serum]["dif_std"] = np.nanstd(dif[I])
+      serum_to_diagnostics[serum]["red_chi2"] = submap.get_red_chi2(1)
+      serum_to_diagnostics[serum]["total_rmsd"] = proc_data["total_rmsd"]
+
+
+
+  if remove_antigens:
+
+    if antigen_list is None:
+      antigen_list = table.index
+
+    for antigen in antigen_list:
+
+      index = [a for a in table.index if a != antigen]
+      subtable = table.loc[index, :]
+
+      submap=\
+        make_map_from_table(subtable, dilution_stepsize=dilution_stepsize,
+                            number_of_dimensions=number_of_dimensions,
+                            number_of_optimizations=number_of_optimizations)
+
+
+      dif = submap.predicted_log_titers() - submap.log_titer_table.values
+      if include_thresholded:
+        I = submap.measured_titer_locations
+      else:
+        I = submap.detectable_titer_locations
+
+      antigen_to_diagnostics[antigen] = {}
+
+      proc_data = procrustes_data(submap, fullmap)
+
+      antigen_to_diagnostics[antigen]["dif_std"] = np.nanstd(dif[I])
+      antigen_to_diagnostics[antigen]["red_chi2"] = submap.get_red_chi2(1)
+      antigen_to_diagnostics[antigen]["total_rmsd"] = proc_data["total_rmsd"]
+
+
+  diagnostics = {"serum":serum_to_diagnostics,
+                 "antigen":antigen_to_diagnostics}
+
+  return diagnostics
+
 
 
 def dimension_test(

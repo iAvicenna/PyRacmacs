@@ -32,19 +32,79 @@ def apply_plotspec(
 
 
 def realign(
-            map: pr.RacMap,
+            source_map: pr.RacMap,
             target_map: pr.RacMap,
             translation=True,
-            scaling=False
+            scaling=False,
+            sera=True,
+            reflection=True
             ):
 
-    realigned_map_R = Racmacs.realignMap(map = map._acmap_R,
-                                         target_map = target_map._acmap_R,
-                                         translation = translation,
-                                         scaling = scaling
-                                         )
+    '''
+    If gives unexpected results, try setting map transformations to
+    identity
+    '''
 
-    return pr.RacMap(realigned_map_R)
+    # for some reason Racmacs realignMap does not always work correctly
+    # so realign is done within this package it might have to do with
+    # how transformations are handled?
+    # realigned_map_R = Racmacs.realignMap(map = source_map._acmap_R,
+    #                                      target_map = target_map._acmap_R,
+    #                                      translation = translation,
+    #                                      scaling = scaling)
+    # return pr.RacMap(realigned_map_R)
+
+    if reflection:
+      reflection="best"
+
+    S = [] # source coordinates
+    T = [] # target coordinates
+    if len(source_map.ag_ids)!=0 and not all(x=='' for x in source_map.ag_ids)\
+      and len(target_map.ag_ids)!=0 and not all(x=='' for x in target_map.ag_ids):
+      source_ag = source_map.ag_ids
+      target_ag = target_map.ag_ids
+    else:
+      source_ag = source_map.ag_names
+      target_ag = target_map.ag_names
+
+    common_ag = set(source_ag).intersection(target_ag)
+    source_ag_coordinates = source_map.ag_coordinates
+    target_ag_coordinates = target_map.ag_coordinates
+
+    for ag in common_ag:
+      i0 = source_ag.index(ag)
+      i1 = target_ag.index(ag)
+      S.append(source_ag_coordinates[i0,:])
+      T.append(target_ag_coordinates[i1,:])
+
+    if sera:
+      if len(source_map.sr_ids)!=0 and len(target_map.sr_ids)!=0:
+        source_sr = source_map.sr_ids
+        target_sr = target_map.sr_ids
+      else:
+        source_sr = source_map.sr_names
+        target_sr = target_map.sr_names
+
+      common_sr = set(source_sr).intersection(target_sr)
+      source_sr_coordinates = source_map.sr_coordinates
+      target_sr_coordinates = target_map.sr_coordinates
+
+      for sr in common_sr:
+        i0 = source_sr.index(sr)
+        i1 = target_sr.index(sr)
+        S.append(source_sr_coordinates[i0,:])
+        T.append(target_sr_coordinates[i1,:])
+
+
+    Z,_,_,M = _procrustes(np.array(S), np.array(T), scaling=scaling,
+                          reflection=reflection)
+
+    source_map.coordinates = (M["scale"]*M["rotation"]@source_map.coordinates.T).T
+
+    if translation:
+      source_map.coordinates = source_map.coordinates + M["translation"]
+
+    return source_map
 
 
 def procrustes_maps(
@@ -107,13 +167,52 @@ def procrustes_data(
 
     procrustes_data = {
         'ag_dists':list(procrustes_data_R[0]),
-        'sr_dsts':list(procrustes_data_R[1]),
-        'ag_rmsd':list(procrustes_data_R[2]),
-        'sr_rmsd':list(procrustes_data_R[3]),
-        'total_rmsd':list(procrustes_data_R[4])
+        'sr_dists':list(procrustes_data_R[1]),
+        'ag_rmsd':list(procrustes_data_R[2])[0],
+        'sr_rmsd':list(procrustes_data_R[3])[0],
+        'total_rmsd':list(procrustes_data_R[4])[0]
         }
 
     return procrustes_data
+
+
+def piecewise_procrustes_data(source_map: pr.RacMap, target_map: pr.RacMap,
+                              compare_sera=True, compare_antigens=True,
+                              labels=None):
+
+    if compare_antigens and not compare_sera:
+      X = source_map.ag_coordinates
+      Y = target_map.ag_coordinates
+    elif compare_sera and not compare_antigens:
+      X = source_map.sr_coordinates
+      Y = target_map.sr_coordinates
+    elif compare_sera and compare_antigens:
+      X = source_map.coordinates
+      Y = target_map.coordinates
+    else:
+      raise ValueError("One of compare_antigens or compare_sera must be True.")
+
+    s = X.shape[0]
+
+    if labels is None:
+      labels = [0 for _ in range(s)]
+
+    label_levels = set(labels)
+
+    max_ndims = max(X.shape[1], Y.shape[1])
+
+    pc_data = np.zeros((X.shape[0], max_ndims))
+
+    for label_level in label_levels:
+        I = [ind for ind,label in enumerate(labels) if label==label_level]
+        X_transform,_,_,_ = pr.comparison._procrustes(Y[I,:], X[I,:])
+        Y_transform,_,_,_ = pr.comparison._procrustes(X[I,:], Y[I,:])
+
+        pc_data[I,:] = X_transform - Y[I,:]
+
+
+
+    return pc_data
 
 
 def piecewise_procrustes(source_map: pr.RacMap, target_map: pr.RacMap,
@@ -178,7 +277,7 @@ def piecewise_procrustes(source_map: pr.RacMap, target_map: pr.RacMap,
       return results[I]
 
 
-def _piecewise_procrustes(X, Y, nclusters=2, scaling=False, reflection='best',
+def _piecewise_procrustes(X, Y, npieces=2, scaling=False, reflection='best',
                       niterations=10000, threshold=2000, metric='ad', seed=None):
 
     if seed is None:
@@ -188,10 +287,10 @@ def _piecewise_procrustes(X, Y, nclusters=2, scaling=False, reflection='best',
         raise ValueError(f'X number of rows is {X.shape[0]}, Y number of rows is {Y.shape[0]} but '
                        'they should be equal.')
 
-    if X.shape[0]<nclusters*3:
-        raise ValueError('Number of elements in the vector should be more than 3*nclusters.')
+    if X.shape[0]<npieces*3:
+        raise ValueError('Number of elements in the vector should be more than 3*npieces.')
 
-    if X.shape[0]<nclusters:
+    if X.shape[0]<npieces:
         raise ValueError('There are more clusters than points.')
 
     if X.shape[1] != Y.shape[1]:
@@ -213,30 +312,34 @@ def _piecewise_procrustes(X, Y, nclusters=2, scaling=False, reflection='best',
     current_labels = []
     set_counter = 0
 
-    while len(set(current_labels))<nclusters:
-        cluster_centers = X[rng.integers(0, npoints, nclusters),:]
+    while len(set(current_labels))<npieces:
+        cluster_centers = X[rng.integers(0, npoints, npieces),:]
 
         distances = cdist(cluster_centers, X)
         initial_labels = np.argmin(distances,axis=0)
 
         current_labels = initial_labels.copy()
 
-        if len(set(current_labels))==nclusters:
-            dissimilarity_history = [_total_dissimilarity(X, Y, current_labels, nclusters,
+        if len(set(current_labels))==npieces:
+            dissimilarity_history = [_total_dissimilarity(X, Y, current_labels, npieces,
                                                           metric)]
 
         set_counter += 1
 
         if set_counter>10*threshold:
-          raise ValueError(f'Can not divide into {nclusters} nonempty clusters')
+          raise ValueError(f'Can not divide into {npieces} nonempty clusters')
 
+
+    if npieces==1:
+      return (initial_labels, current_labels, initial_dissimilarity,
+              dissimilarity_history)
 
     for i in range(niterations):
 
         if (i+1)%threshold==0 and dissimilarity_history[-1] == dissimilarity_history[-threshold]:
             break
 
-        perm_labels = rng.permutation(range(nclusters))
+        perm_labels = rng.permutation(range(npieces))
 
         I = [ind for ind,label in enumerate(current_labels)
              if label==perm_labels[0]]
@@ -248,9 +351,10 @@ def _piecewise_procrustes(X, Y, nclusters=2, scaling=False, reflection='best',
         pt_ind = I[rng.integers(0,len(I))]
 
         new_labels = current_labels.copy()
+
         new_labels[pt_ind] = perm_labels[1]
 
-        new_dissimilarity = _total_dissimilarity(X, Y, new_labels, nclusters, metric)
+        new_dissimilarity = _total_dissimilarity(X, Y, new_labels, npieces, metric)
         if new_dissimilarity < dissimilarity_history[-1]:
 
             dissimilarity_history.append(new_dissimilarity)
@@ -349,8 +453,10 @@ def _procrustes(X, Y, scaling=True, reflection='best'):
     if len(I)==0:
         warnings.warn("Atleast one of the coordinates have all nan values. "
                       "Aborting procrustes")
-        #return Y, np.inf, np.inf, None
-        return Y, np.inf, np.sqrt(np.nanmean(np.linalg.norm((X - Y)**2, axis=1))), None
+
+        return Y, np.inf, np.sqrt(np.nanmean(np.linalg.norm((X - Y)**2, axis=1))),\
+          {"scale":1, "rotation":np.eye(Y.shape[1],),
+           "translation":np.zeros(Y.shape[1],)}
 
     if len(I)/X.shape[0]<0.5:
         print('Warning: More than half of the rows have a nan value in it')
@@ -386,7 +492,8 @@ def _procrustes(X, Y, scaling=True, reflection='best'):
         warnings.warn("One of the vectors has only one element. "
                       "Aborting procrustes")
         #return Y, np.inf, np.inf, None
-        return Y_sub, np.inf, np.sqrt(np.nanmean(np.linalg.norm((X - Y)**2, axis=1))), None
+        return Y_sub, np.inf, np.sqrt(np.nanmean(np.linalg.norm((X - Y)**2, axis=1))),\
+          {"scale":1, "rotation":np.eye(my,), "translation":np.zeros(my,)}
 
 
     # scale to equal (unit) norm
@@ -450,7 +557,16 @@ def _procrustes(X, Y, scaling=True, reflection='best'):
     return Y_transformed, standardized_distance, rmsd, tform
 
 
+'''
+Transformations of maps affect the results in the following way
+(correspondance with Sam Wilks):
 
+They affect the coordinates you get when you call agCoords, etc.
+so yes are accounted for when plotting maps.  For procrustes, this aligns
+the maps by adjusting the transformations and the base coordinates aren't
+changed.  When you do relaxmap the transformation is ignored and only
+the base coordinates are optimised.
+'''
 
 def rotate_map(racmap:pr.RacMap, degrees:float, optimization_number:int=None,
                axis:str=None):

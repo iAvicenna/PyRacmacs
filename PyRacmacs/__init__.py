@@ -18,8 +18,10 @@ from .visual import view
 
 from .comparison import (procrustes_maps, procrustes_data, realign,
                          apply_plotspec, rotate_map, translate_map,
-                         reflect_map, piecewise_procrustes)
+                         reflect_map, piecewise_procrustes,
+                         piecewise_procrustes_data)
 
 from .merger import merge_maps, merge_tables
 
-from .validation import dimension_test, check_hemisphering
+from .validation import dimension_test, check_hemisphering, leave_one_out_test,\
+  leave_pair_out_test

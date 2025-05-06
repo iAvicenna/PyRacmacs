@@ -669,6 +669,7 @@ def bootstrap_bar(vol, ndims, input_max_y=None, transformation=None):
 
 def bootstrap_agcolored_map(vol, racmap: pr.RacMap, max_val=None, min_val=None):
 
+
   ndims = racmap.number_of_dimensions
   assert ndims in [2,3], f"map dimensions is {ndims} but can only be 2 or 3"
 

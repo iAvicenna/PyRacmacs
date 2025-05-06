@@ -12,7 +12,8 @@ from .io import capture_r_output
 
 
 def merge_tables(tables:list, number_of_dimensions:int, dilution_step_size:int,
-                 merge_args=None):
+                 sd_limit:float=None, merge_args:dict=None):
+
 
     if len(tables)==1:
         return tables[0]
@@ -22,12 +23,12 @@ def merge_tables(tables:list, number_of_dimensions:int, dilution_step_size:int,
 
     maps = [RacMap(titer_table=table) for table in tables]
 
-    return merge_maps(maps, number_of_dimensions, dilution_step_size,
+    return merge_maps(maps, number_of_dimensions, dilution_step_size, sd_limit,
                       **merge_args).titer_table
 
 
 def merge_maps(maps:list, number_of_dimensions:int, dilution_step_size:int,
-               number_of_optimizations:int=1000, method="table",
+               sd_limit:float=None, number_of_optimizations:int=1000, method="table",
                minimum_column_basis:str="none", optimizer_options=None,
                merge_options=None, verbose=True, merge_report=False):
 
@@ -48,6 +49,8 @@ def merge_maps(maps:list, number_of_dimensions:int, dilution_step_size:int,
     if isinstance(merge_options,dict):
         merge_options = RacMergeOptions(**merge_options)
         merge_options.dilution_step_size = dilution_step_size
+        if sd_limit is not None:
+          merge_options.sd_limit = sd_limit
 
 
     stdout, stderr = capture_r_output(verbose, True)

@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import warnings
 import multiprocessing
+import tqdm
 from . import Racmacs
 
 from .utils import conversion, regulations
@@ -87,8 +88,6 @@ class RacMergeOptions():
 
       if method is None:
         method = rNULL
-
-
 
       self.dilution_stepsize = dilution_stepsize
       self.sd_limit = sd_limit
@@ -222,7 +221,7 @@ class RacMap():
         return np.concatenate([ag_coords, sr_coords])
 
 
-    def get_red_chi2(self, std=1, optimization_number=0):
+    def get_red_chi2(self, std, optimization_number=0):
         return self.get_stress(optimization_number)/(std**2*self.df)
 
 
@@ -365,9 +364,32 @@ class RacMap():
         return titer_table
 
     @property
+    def titer_table_layers(self):
+        titer_table_layers_R = list(Racmacs.titerTableLayers(self._acmap_R))
+        titer_table_layers = []
+
+        columns = self.titer_table.columns
+        index = self.titer_table.index
+        s1 = len(index)
+        s2 = len(columns)
+
+        ntables = len(titer_table_layers_R)
+
+        for titer_table_R in tqdm.tqdm(titer_table_layers_R,
+                                       desc="Loading table layers",
+                                       disable=ntables<5):
+
+          titer_table = conversion.return_list(titer_table_R)
+          titer_table = np.reshape(np.array(titer_table),(s2,s1)).T
+          titer_table = pd.DataFrame(titer_table,index=index, columns=columns)
+          titer_table_layers.append(titer_table)
+
+        return titer_table_layers
+
+    @property
     def log_titer_table(self):
 
-        num_titers = self.titer_table.applymap(conversion.titer_str_to_num).values
+        num_titers = self.titer_table.map(conversion.titer_str_to_num).values
         log_titers = np.log2(num_titers/10)
 
         log_titer_table = pd.DataFrame(log_titers, index = self.ag_names,
@@ -402,11 +424,12 @@ class RacMap():
     @property
     def detectable_titer_locations(self):
         '''
-        titers which do not have < or > in them
+        titers which do not have <, > or * in them
         '''
 
         indices = np.argwhere((np.char.find(self.titer_table.values.astype(str),'<')==-1) &
-                              (np.char.find(self.titer_table.values.astype(str),'>')==-1)
+                              (np.char.find(self.titer_table.values.astype(str),'>')==-1) &
+                              (np.char.find(self.titer_table.values.astype(str),'*')==-1)
                               )
 
         return tuple(np.array(indices).T.tolist())
@@ -628,6 +651,26 @@ class RacMap():
     def column_bases(self):
         return conversion.return_list(Racmacs.colBases(self._acmap_R))
 
+    def distance_types(self):
+
+      titer_table = self.titer_table.values
+
+      distance_types = np.zeros((titer_table.shape))
+      distance_types[titer_table=='*']=1
+      distance_types[np.vectorize(lambda s: s[0])(titer_table)=='<']=2
+      distance_types[np.vectorize(lambda s: s[0])(titer_table)=='>']=3
+
+      return distance_types
+
+    def table_distances(self):
+        distances = np.reshape(np.array(Racmacs.tableDistances(self._acmap_R)),
+                               (self.num_antigens, self.num_sera), order='F')
+
+        distances =\
+          np.vectorize(lambda s: float(s) if s[0] not in ['<','>','*'] else np.nan if
+                       s=='*' else float(s[1:]))(distances)
+
+        return distances
 
     def map_distances(self, optimization_number=0):
         return np.array(Racmacs.mapDistances(self._acmap_R, optimization_number+1))
@@ -635,7 +678,7 @@ class RacMap():
 
     def predicted_log_titers(self, optimization_number=0):
 
-        map_distances = self.map_distances(optimization_number=optimization_number+1)
+        map_distances = self.map_distances(optimization_number=optimization_number)
         s1,s2 = map_distances.shape
         column_bases = np.tile(np.reshape(self.column_bases,(s2,1)),(1,s1)).T
 
@@ -793,6 +836,11 @@ class RacMap():
     def _get_ag_sizes(self):
         return conversion.return_list(Racmacs.agSize(self._acmap_R))
 
+    def _get_ag_outline_widths(self):
+        return conversion.return_list(Racmacs.agOutlineWidth(self._acmap_R))
+
+    def _get_sr_outline_widths(self):
+        return conversion.return_list(Racmacs.srOutlineWidth(self._acmap_R))
 
     def _get_ag_reactivity_adjustments(self):
         return conversion.return_list(Racmacs.agReactivityAdjustments(self._acmap_R))
@@ -808,7 +856,7 @@ class RacMap():
       nrows = self.num_antigens
       ncols = int(size/nrows)
 
-      return np.reshape(seqs, (ncols, nrows))
+      return np.reshape(seqs, (ncols, nrows)).T
 
     def _get_sr_sequences(self):
       seqs = np.array(Racmacs.srSequences(self._acmap_R))
@@ -816,7 +864,7 @@ class RacMap():
       nrows = self.num_sera
       ncols = int(size/nrows)
 
-      return np.reshape(seqs, (nrows, ncols))
+      return np.reshape(seqs, (ncols, nrows)).T
 
     def _set_sr_names(self, val):
         set_method = r("`srNames<-`")
@@ -867,6 +915,13 @@ class RacMap():
         set_method = r("`agOutline<-`")
         self._acmap_R = set_method(self._acmap_R, ro.StrVector(val))
 
+    def _set_ag_outline_widths(self, val):
+        set_method = r("`agOutlineWidth<-`")
+        self._acmap_R = set_method(self._acmap_R, ro.FloatVector(val))
+
+    def _set_sr_outline_widths(self, val):
+        set_method = r("`srOutlineWidth<-`")
+        self._acmap_R = set_method(self._acmap_R, ro.FloatVector(val))
 
     def _set_sr_shapes(self, val):
         set_method = r("`srShape<-`")
@@ -937,12 +992,20 @@ class RacMap():
 
     def _set_ag_sequences(self, sequences):
 
+        '''
+        should be a matrix of sequences num_ag x npositions
+        '''
+
         set_method = r("`agSequences<-`")
         sequences = ro.numpy2ri.numpy2rpy(sequences)
         self._acmap_R = set_method(self._acmap_R, sequences)
 
 
     def _set_sr_sequences(self, sequences):
+
+        '''
+        should be a matrix of sequences num_sr x npositions
+        '''
 
         set_method = r("`srSequences<-`")
 
@@ -964,6 +1027,8 @@ class RacMap():
     ag_reactivity_adjustments = property(_get_ag_reactivity_adjustments, _set_ag_reactivity_adjustments)
     sr_outlines = property(_get_sr_outlines, _set_sr_outlines)
     ag_outlines = property(_get_ag_outlines, _set_ag_outlines)
+    sr_outline_widths = property(_get_sr_outline_widths, _set_sr_outline_widths)
+    ag_outline_widths = property(_get_ag_outline_widths, _set_ag_outline_widths)
     sr_shapes = property(_get_sr_shapes, _set_sr_shapes)
     ag_shapes = property(_get_ag_shapes, _set_ag_shapes)
     sr_fills = property(_get_sr_fills, _set_sr_fills)
@@ -978,6 +1043,44 @@ class RacMap():
 
 
 def _extract_blobs_from_R(map_with_blobs, blob_type, optimization_number=0):
+    '''
+    Note that in 3D when you call BootstrapBlob on a bootstrapped blob, for
+    each ag or sr it returns a list of blobs but the elements of this list
+    contains redundant information. In particular it contains the fields
+    vertices, faces, normals but the values of vertices and normals are identical
+    for each element of the list because they are the total set of vertices
+    and normals for the whole collection of blobs not just that particular blob.
+    only the faces are different from blob to blob. So this needs to be dealt
+    with correctly.
+
+    These faces are however not always split correctly, sometimes it constaints
+    disjoint meshes such as in the case of:
+
+
+    > sr_blobs[[29]][[1]][["faces"]]
+          [,1] [,2] [,3]
+     [1,]    0    1    2
+     [2,]    1    0    3
+     [3,]    0    2    4
+     [4,]    3    0    4
+     [5,]    1    5    2
+     [6,]    1    3    5
+     [7,]    2    5    4
+     [8,]    3    4    5
+     [9,]   10    6   11
+    [10,]   14   17    8
+    [11,]   32   35   34
+    [12,]   33   34   35
+
+    where faces 9,10,11,12 actually are disjoint and really belongs to the
+    second blob (not shown here).
+
+    This is problematic if one wants to divide these into geometric 3d objects
+    and compute volumes etc. So all of the faces are storted together into one
+    array. One can then call the function analyse_blobs on the output of this
+    function to seperate these faces into correctly disjoint sets and get volumes.
+
+    '''
 
     ag_names = map_with_blobs.ag_names
     sr_names = map_with_blobs.sr_names
@@ -992,45 +1095,56 @@ def _extract_blobs_from_R(map_with_blobs, blob_type, optimization_number=0):
       dtypes = [float, int, float]
 
       for ag in ag_names:
-        ag_blobs[ag] = {}
+        ag_blobs[ag] = {key:np.empty((0,3), dtype=dtypes[indk])
+                        for indk,key in enumerate(keys)}
 
         if blob_type == 'bootstrap':
-          ag_blob = Racmacs.agBootstrapBlob(map_with_blobs._acmap_R, ag)
+          ag_blob_list = Racmacs.agBootstrapBlob(map_with_blobs._acmap_R, ag)
         elif blob_type == 'triangulation':
-          ag_blob = Racmacs.agTriangulationBlob(map_with_blobs._acmap_R, ag,
+          ag_blob_list = Racmacs.agTriangulationBlob(map_with_blobs._acmap_R, ag,
                                                 optimization_number+1)
         else:
           raise ValueError("blob_type can only be bootstrap or triangulation "
                            "but it was {blob_type}")
 
-        for i in range(3):
-          if ag_blob == rNULL or len(ag_blob)==0:
-            ag_blobs[ag][keys[i]] = np.array([[]])
-            continue
+        if ag_blob_list == rNULL or len(ag_blob_list)==0:
+          continue
 
-          ag_blobs[ag][keys[i]] = np.array(Racmacs.agBootstrapBlob(map_with_blobs._acmap_R,ag)[0][i],
-                                           dtype=dtypes[i])
+        for indb,ag_blob in enumerate(ag_blob_list):
+
+          if indb==0:
+            ag_blobs[ag][keys[0]] = np.array(ag_blob[0])
+            ag_blobs[ag][keys[2]] = np.array(ag_blob[2])
+
+          ag_blobs[ag][keys[1]] = np.concatenate((ag_blobs[ag][keys[1]],
+                                                  np.array(ag_blob[1],
+                                                           dtype=int)))
 
       for sr in sr_names:
-        sr_blobs[sr] = {}
+        sr_blobs[sr] = {key:np.empty((0,3), dtype=dtypes[indk])
+                        for indk,key in enumerate(keys)}
 
         if blob_type == 'bootstrap':
-          sr_blob = Racmacs.srBootstrapBlob(map_with_blobs._acmap_R, sr)
+          sr_blob_list = Racmacs.srBootstrapBlob(map_with_blobs._acmap_R, sr)
         elif blob_type == 'triangulation':
-          sr_blob = Racmacs.srTriangulationBlob(map_with_blobs._acmap_R, sr,
+          sr_blob_list = Racmacs.srTriangulationBlob(map_with_blobs._acmap_R, sr,
                                                 optimization_number+1)
         else:
           raise ValueError("blob_type can only be bootstrap or triangulation "
                            "but it was {blob_type}")
 
-        for i in range(3):
+        if sr_blob_list == rNULL or len(sr_blob_list)==0:
+          continue
 
-          if sr_blob == rNULL or len(sr_blob)==0:
-            sr_blobs[sr][keys[i]] = np.array([[]])
-            continue
 
-          sr_blobs[sr][keys[i]] = np.array(Racmacs.srBootstrapBlob(map_with_blobs._acmap_R,sr)[0][i],
-                                           dtype=dtypes[i])
+        for indb,sr_blob in enumerate(sr_blob_list):
+          if indb==0:
+            sr_blobs[sr][keys[0]] = np.array(sr_blob[0])
+            sr_blobs[sr][keys[2]] = np.array(sr_blob[2])
+
+          sr_blobs[sr][keys[1]] = np.concatenate((sr_blobs[sr][keys[1]],
+                                                  np.array(sr_blob[1],
+                                                           dtype=int)))
 
     else:
 

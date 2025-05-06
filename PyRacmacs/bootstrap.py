@@ -115,6 +115,14 @@ def bootstrap_blobs(racmap, conf=0.68, smoothing=6, grid_spacing=0.25, antigens=
 
 def analyse_blobs(blobs):
 
+  '''
+  A function that divides a given set of vertices, faces, normals in 2D or 3D
+  into disjoint objects and calculates their area/volume. The output shows
+  the area/volume for each disjoint blob seperately. blobs which are too small
+  in size area discarded (i.e if there are multiple blobs atleast one of which
+  has vol>1 then those with vol<0.005 ~ r=0.1AU are discarded as outliers).
+  '''
+
   if all([isinstance(blob, dict) and all(x in blob for x in ['vertices', 'faces', 'normals'])
           for blob in blobs.values()]):
     return _analyse_blobs_3D(blobs)
@@ -132,6 +140,7 @@ def _analyse_blobs_3D(blobs):
   blob_maxsize_data = {}
 
   for name in blobs:
+
     vertices = blobs[name]['vertices']
     faces = blobs[name]['faces']
     normals = blobs[name]['normals']
@@ -142,7 +151,7 @@ def _analyse_blobs_3D(blobs):
 
     vertices = vertices[I,:]
     normals = normals[I,:]
-    faces=_reindex_faces(faces)
+    faces = _reindex_faces(faces)
 
     if len(I)<4:
       blob_vol_data[name]=[0]
@@ -150,11 +159,10 @@ def _analyse_blobs_3D(blobs):
 
       continue
 
-
     adj = _faces_to_adj(faces)
 
     blob_comps = connected_components(adj)
-    component_levels = set(blob_comps[1])
+    component_levels = set(blob_comps[1]) # splits vertices into components by connectivity
 
     for level in component_levels:
       I = [ind for ind,cl in enumerate(blob_comps[1]) if cl==level]
@@ -216,6 +224,7 @@ def _analyse_blobs_2D(blobs):
 
   return blob_area_data, blob_maxsize_data
 
+
 def _polygon_area(x,y):
   '''
   shoelace formula
@@ -230,7 +239,7 @@ def _polygon_area(x,y):
 def _clean_blobs(volumes):
 
   if len(volumes)>1 and max(volumes)>1:
-    I = [ind for ind,vol in enumerate(volumes) if vol>0.1]
+    I = [ind for ind,vol in enumerate(volumes) if vol>0.005]
   else:
     I = [ind for ind,vol in enumerate(volumes) if vol!=0]
 
