@@ -281,7 +281,7 @@ def piecewise_procrustes(source_map: pr.RacMap, target_map: pr.RacMap,
 
 
 def _piecewise_procrustes(X, Y, npieces=2, scaling=False, reflection='best',
-                      niterations=10000, threshold=2000, metric='ad', seed=None):
+                         niterations=10000, threshold=2000, metric='ad', seed=None):
 
     if seed is None:
         seed = np.random.SeedSequence().spawn(1)[0]
@@ -314,6 +314,7 @@ def _piecewise_procrustes(X, Y, npieces=2, scaling=False, reflection='best',
     rng = np.random.default_rng(seed)
     current_labels = []
     set_counter = 0
+    dissimilarity_history = [initial_dissimilarity]
 
     while len(set(current_labels))<npieces:
         cluster_centers = X[rng.integers(0, npoints, npieces),:]
@@ -324,8 +325,8 @@ def _piecewise_procrustes(X, Y, npieces=2, scaling=False, reflection='best',
         current_labels = initial_labels.copy()
 
         if len(set(current_labels))==npieces:
-            dissimilarity_history = [_total_dissimilarity(X, Y, current_labels, npieces,
-                                                          metric)]
+            dissimilarity_history += [_total_dissimilarity(X, Y, current_labels, npieces,
+                                                           metric)]
 
         set_counter += 1
 
@@ -347,7 +348,7 @@ def _piecewise_procrustes(X, Y, npieces=2, scaling=False, reflection='best',
         I = [ind for ind,label in enumerate(current_labels)
              if label==perm_labels[0]]
 
-        if len(I)<3:# and current_labels.tolist().count(perm_labels[1])<3:
+        if len(I)<3:
           dissimilarity_history.append(dissimilarity_history[-1])
           continue
 
@@ -384,14 +385,14 @@ def _total_dissimilarity(X, Y, labels, n_groups, metric):
 
         try:
           Ytrans,_,_,_=\
-          _procrustes(Xsub, Ysub, scaling=False)
+            _procrustes(Xsub, Ysub, scaling=False)
         except Exception as e:
           Ytrans = Ysub
           print(e)
 
         if metric == 'sd':
             total_dissimilarity +=\
-              np.sum(np.linalg.norm((Ytrans-Xsub)**2,axis=1))
+              np.sum(np.linalg.norm((Ytrans-Xsub),axis=1)**2)
         if metric == 'ad':
             total_dissimilarity +=\
               np.sum(np.abs(Ytrans-Xsub))
