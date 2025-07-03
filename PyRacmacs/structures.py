@@ -342,6 +342,10 @@ class RacMap():
         return len(self.measured_titer_locations[0])
 
     @property
+    def number_of_detectable_titers(self):
+        return len(self.detectable_titer_locations[0])
+
+    @property
     def number_of_well_coordinated_titers(self):
         return len(self.well_coordinated_titer_locations[0])
 
@@ -541,8 +545,18 @@ class RacMap():
       a dataframe reflecting whether a titer has * in or not
       '''
 
-      return pd.DataFrame(np.core.defchararray.find(self.titer_table.values.astype(str),'*')!=-1,
-                          index=self.ag_names, columns=self.sr_names)
+      return ~pd.DataFrame(np.core.defchararray.find(self.titer_table.values.astype(str),'*')!=-1,
+                           index=self.ag_names, columns=self.sr_names)
+
+
+    @property
+    def is_detectable(self):
+      '''
+      a dataframe reflecting whether a titer is measured and within limits
+      of detection or not
+      '''
+
+      return ~self.is_below_LD & ~self.is_above_LD & self.is_measured
 
 
     @property
@@ -610,21 +624,14 @@ class RacMap():
         if isinstance(Racmacs.srGroups(self._acmap_R),rpy2.rinterface_lib.sexp.NULLType):
             return []
         else:
-            sr_group_levels = conversion.return_list(Racmacs.srGroups(self._acmap_R).levels)
-            sr_groups = self.sr_groups
-            I = np.argsort([sr_groups.index(x) for x in sr_group_levels])
-            return [sr_group_levels[i] for i in I]
+            return conversion.return_list(Racmacs.srGroups(self._acmap_R).levels)
 
     @property
     def ag_group_levels(self):
         if isinstance(Racmacs.agGroups(self._acmap_R),rpy2.rinterface_lib.sexp.NULLType):
             return []
         else:
-            ag_group_levels = conversion.return_list(Racmacs.agGroups(self._acmap_R).levels)
-            ag_groups = self.ag_groups
-            I = np.argsort([ag_groups.index(x) for x in ag_group_levels])
-            return [ag_group_levels[i] for i in I]
-
+            return conversion.return_list(Racmacs.agGroups(self._acmap_R).levels)
 
     @property
     def shape(self):
@@ -775,8 +782,8 @@ class RacMap():
 
     def _get_coordinates(self, optimization_number=0):
 
-        ag_coordinates = self._get_ag_coordinates()
-        sr_coordinates = self._get_sr_coordinates()
+        ag_coordinates = self._get_ag_coordinates(optimization_number=optimization_number)
+        sr_coordinates = self._get_sr_coordinates(optimization_number=optimization_number)
 
         return np.concatenate([ag_coordinates, sr_coordinates])
 

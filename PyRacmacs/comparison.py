@@ -102,7 +102,10 @@ def realign(
     source_map.coordinates = (M["scale"]*M["rotation"]@source_map.coordinates.T).T
 
     if translation:
-      source_map.coordinates = source_map.coordinates + M["translation"]
+      translation = target_map.coordinates.mean(axis=0) -\
+        source_map.coordinates.mean(axis=0)
+
+      source_map.coordinates = source_map.coordinates + translation
 
     return source_map
 

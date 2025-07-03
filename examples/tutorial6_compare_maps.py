@@ -9,7 +9,6 @@ Created on Tue Aug  8 16:14:45 2023
 import matplotlib.pyplot as plt
 import PyRacmacs as pr
 import numpy as np
-from scipy.spatial.distance import cdist
 
 racmap = pr.read_racmap("./tutorial_data/h3map2004.ace")
 racmap_3D = pr.read_racmap("./tutorial_data/h3map2004_3D.ace")
