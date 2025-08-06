@@ -8,8 +8,14 @@ Created on Thu Jul 20 02:28:47 2023
 
 import numpy as np
 import itertools as it
-import trimesh
 import time
+try:
+  import trimesh
+  _TRIMESH_FOUND=True
+except ModuleNotFoundError:
+  _TRIMESH_FOUND=False
+  pass
+
 from scipy.spatial.distance import cdist
 from . import Racmacs
 from scipy.sparse.csgraph import connected_components
@@ -135,6 +141,10 @@ def analyse_blobs(blobs):
 
 
 def _analyse_blobs_3D(blobs):
+
+  if not _TRIMESH_FOUND:
+    print("module trimesh not found, this function can't be called.")
+    return
 
   blob_vol_data = {}
   blob_maxsize_data = {}

@@ -4,7 +4,11 @@ Racmacs = importr('Racmacs')
 from .structures import (RacMap, RacOptimizerOptions, RacMergeOptions,
                          RacViewerOptions)
 
-from . import plot_lib
+try:
+  from . import plot_lib
+except ModuleNotFoundError:
+  pass
+
 from . import model_evaluation_lib
 
 from .optimization import (make_map_from_table, optimize_map, relax_map)
