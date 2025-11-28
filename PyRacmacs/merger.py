@@ -14,7 +14,6 @@ from .io import capture_r_output
 def merge_tables(tables:list, number_of_dimensions:int, dilution_step_size:int,
                  sd_limit:float=None, merge_args:dict=None):
 
-
     if len(tables)==1:
         return tables[0]
 

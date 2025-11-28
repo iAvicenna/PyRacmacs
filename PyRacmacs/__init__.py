@@ -18,7 +18,7 @@ from .io import read_racmap, write_racmap
 from .bootstrap import (triangulation_blobs, bootstrap_map, bootstrap_blobs,
                         analyse_blobs)
 
-from .visual import view
+from .visual import view, plot
 
 from .comparison import (procrustes_maps, procrustes_data, realign,
                          apply_plotspec, rotate_map, translate_map,

@@ -75,13 +75,20 @@ def make_map_from_table(
     if titer_weights is None:
         titer_weights = rNULL
     else:
-        titer_weights = ro.FloatVector(titer_weights)
+        assert titer_weights.shape==titer_table.shape,\
+          "titer_table and titer_weights must have the same shape"
+
+        ro.numpy2ri.activate()
+        titer_weights = ro.r.matrix(titer_weights, nrow=titer_weights.shape[0],
+                                    ncol=titer_weights.shape[1])
+
 
     if isinstance(options,dict):
         options = RacOptimizerOptions(**options)
 
     with ro.conversion.localconverter(ro.default_converter + pandas2ri.converter):
-        table_R = ro.conversion.py2rpy(titer_table)
+        table_R = ro.conversion.get_conversion().py2rpy(titer_table)
+
 
     acmap_R = Racmacs.acmap(ag_names, sr_names, table_R)
     acmap_R = conversion.set_dilution_stepsize(acmap_R, dilution_stepsize)
@@ -121,6 +128,9 @@ def optimize_map(racmap, number_of_dimensions: int=2,
     if titer_weights is None:
         titer_weights = rNULL
     else:
+        assert titer_weights.shape==racmap.shape,\
+          "titer_table and titer_weights must have the same shape"
+
         ro.numpy2ri.activate()
         titer_weights = ro.r.matrix(titer_weights, nrow=titer_weights.shape[0],
                                     ncol=titer_weights.shape[1])

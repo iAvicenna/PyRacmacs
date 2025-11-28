@@ -182,17 +182,32 @@ class RacMap():
                          align_optimizations)
 
 
-    def __init__(self, acmap_R=None, titer_table=None):
+    def __init__(self, acmap_R=None, titer_table=None, ag_names=None,
+                 sr_names=None, ag_coords=None, sr_coords=None):
 
         if acmap_R is not None:
             self._acmap_R = acmap_R
         elif titer_table is not None:
             with ro.conversion.localconverter(ro.default_converter + pandas2ri.converter):
                 titer_table_r = ro.conversion.py2rpy(titer_table)
+
             self._acmap_R = Racmacs.acmap(titer_table=titer_table_r,
                                           ag_names = ro.StrVector(titer_table.index),
                                           sr_names = ro.StrVector(titer_table.columns))
+        elif ag_coords is not None and sr_coords is not None:
 
+            if sr_names is not None:
+              sr_names = ro.StrVector(sr_names)
+            if ag_names is not None:
+              ag_names = ro.StrVector(ag_names)
+
+            ag_coords_r = ro.numpy2ri.numpy2rpy(ag_coords)
+            sr_coords_r = ro.numpy2ri.numpy2rpy(sr_coords)
+
+            self._acmap_R = Racmacs.acmap(ag_names = ag_names,
+                                          sr_names = sr_names,
+                                          ag_coords = ag_coords_r,
+                                          sr_coords = sr_coords_r)
 
     def get_bootstrap_data(self, optimization_number=0):
         return self.get_optimization(optimization_number)['bootstrap']

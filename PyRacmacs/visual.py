@@ -112,7 +112,7 @@ def plot(racmap: pr.RacMap,
     linewidths = [2 for _ in range(s1)]
 
   if sizes is None:
-    sizes = [1000 for _ in range(s1)]
+    sizes = [500 for _ in range(s1)]
 
 
 

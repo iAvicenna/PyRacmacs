@@ -54,6 +54,7 @@ def realign(
     #                                      scaling = scaling)
     # return pr.RacMap(realigned_map_R)
 
+
     if reflection:
       reflection="best"
 
@@ -96,14 +97,14 @@ def realign(
         T.append(target_sr_coordinates[i1,:])
 
 
-    Z,_,_,M = _procrustes(np.array(S), np.array(T), scaling=scaling,
+    I = ~np.isnan(np.array(S).sum(axis=1)) & ~np.isnan(np.array(T).sum(axis=1))
+    Z,_,_,M = _procrustes(np.array(S)[I,:], np.array(T)[I,:], scaling=scaling,
                           reflection=reflection)
-
     source_map.coordinates = (M["scale"]*M["rotation"]@source_map.coordinates.T).T
 
     if translation:
-      translation = target_map.coordinates.mean(axis=0) -\
-        source_map.coordinates.mean(axis=0)
+      translation = np.nanmean(target_map.coordinates, axis=0) -\
+        np.nanmean(source_map.coordinates, axis=0)
 
       source_map.coordinates = source_map.coordinates + translation
 
