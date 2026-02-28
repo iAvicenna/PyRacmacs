@@ -49,7 +49,7 @@ and I am not sure how to create such an environment, apart from trying to instal
 If you want to create an environment with more packages changing the first step to 
 
 ```
-conda create -n env-name r-base other-packages
+conda create -n env-name other-packages
 ```
 
 seems to work fine too.
