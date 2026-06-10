@@ -32,8 +32,7 @@ export LDFLAGS="-Wl,-rpath,/usr/lib/R/lib"
 pip install rpy2 --force-reinstall --compile --no-binary rpy2
 ```
 
-You can check if the installation was correct by running python -m rpy2.situation.
-If somewhere in the output it says
+You can check if the installation was correct by running python -m rpy2.situation. If somewhere in the output it says
 
 ```
 Looking for R's HOME:
@@ -41,7 +40,7 @@ Looking for R's HOME:
     Calling `R RHOME`: /usr/lib/R
 ```
 
-you are good to go. 
+you are good to go. You might need to have r-base version >=4.5 for this to work but the installation might still work fine even if you can't reproduce this output.
 
 Note that installing other R related packages such as r-base prior to this will result in R RHOME likely pointing to enviroment's bin directory
 and I am not sure how to create such an environment, apart from trying to install r-base afterwards rpy2.
