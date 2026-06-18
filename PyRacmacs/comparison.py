@@ -37,7 +37,8 @@ def realign(
             translation=True,
             scaling=False,
             sera=True,
-            reflection=True
+            reflection=True,
+            r_backend=False
             ):
 
     '''
@@ -48,11 +49,12 @@ def realign(
     # for some reason Racmacs realignMap does not always work correctly
     # so realign is done within this package it might have to do with
     # how transformations are handled?
-    # realigned_map_R = Racmacs.realignMap(map = source_map._acmap_R,
-    #                                      target_map = target_map._acmap_R,
-    #                                      translation = translation,
-    #                                      scaling = scaling)
-    # return pr.RacMap(realigned_map_R)
+    if r_backend:
+      realigned_map_R = Racmacs.realignMap(map = source_map._acmap_R,
+                                           target_map = target_map._acmap_R,
+                                           translation = translation,
+                                           scaling = scaling)
+      return pr.RacMap(realigned_map_R)
 
 
     if reflection:
