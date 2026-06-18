@@ -10,15 +10,15 @@ import numpy as np
 import pandas as pd
 import plotly as plotly
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import PyRacmacs as pr
 
 from plotly.subplots import make_subplots as _make_subplots
 
-from matplotlib.cm import get_cmap
-from matplotlib import colors as mplcolors, colormaps
+from matplotlib import colors as mplcolors
 
-cm = colormaps["tab20"]
+cm = mpl.colormaps["tab20"]
 cm = [cm(i) for i in range(0,20,2)] + [cm(i) for i in range(1,20,2)]
 
 
@@ -39,11 +39,11 @@ def generate_color_categories(categories, return_hex=False):
 
     ncol = len(categories)
     if ncol <= 10:
-        colors = [i for i in get_cmap('tab10').colors]
+        colors = [i for i in mpl.colormaps["tab10"].colors]
     elif 10 < ncol <= 20:
-        colors = [i for i in get_cmap('tab20').colors]
+        colors = [i for i in mpl.colormaps["tab20"].colors]
     elif 25 < ncol <= 256:
-        cmap = get_cmap(name='viridis')
+        cmap =  mpl.colormaps["viridis"]
         colors = cmap(np.linspace(0, 1, ncol))
     else:
         raise ValueError('Maximum 256 categories')
