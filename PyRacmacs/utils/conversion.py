@@ -9,6 +9,7 @@ Created on Wed Feb 23 21:40:57 2022
 import numpy as np
 import json
 import rpy2
+import rpy2.rlike.container
 import rpy2.robjects as ro
 
 from rpy2.robjects import r,  conversion, default_converter
@@ -86,22 +87,33 @@ def titers_num_to_str(num_titers, titer_types):
 def odict_to_dict(odict):
 
   '''
-  should be used with odicts which does not contain None keys or
-  other odicts with None keys
+  Recursively converts an rpy2 named container into native Python objects:
+  a dict when every entry is uniquely named, otherwise a list. Leaf values
+  are returned unchanged.
+
+  Handles both the rpy2 >= 3.6 ``NamedList`` and the legacy ``OrdDict``.
   '''
 
-  new_dict = {}
+  NamedList = getattr(rpy2.rlike.container, 'NamedList', None)
+  OrdDict = getattr(rpy2.rlike.container, 'OrdDict', None)
 
-  for key in odict:
+  if NamedList is not None and isinstance(odict, NamedList):
+    names = list(odict.names())
+    values = [odict_to_dict(val) for val in odict]
+    if names and all(n is not None for n in names) and len(set(names)) == len(names):
+      return dict(zip(names, values))
+    return values
 
-    if isinstance(odict[key], rpy2.rlike.container.OrdDict):
+  if OrdDict is not None and isinstance(odict, OrdDict):
+    new_dict = {}
+    for key in odict:
       new_dict[key] = odict_to_dict(odict[key])
-    elif isinstance(odict[key], list):
-      new_dict[key] = [odict_to_dict(val) for val in odict[key]]
-    else:
-      new_dict[key] = odict[key]
+    return new_dict
 
-  return new_dict
+  if isinstance(odict, list):
+    return [odict_to_dict(val) for val in odict]
+
+  return odict
 
 
 def convert_options(option_dict):
