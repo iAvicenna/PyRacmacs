@@ -172,6 +172,7 @@ class RacMap():
     properties listed here allow accessing and modifying attributes
     of this object via the imported Racmacs package functionalities.
     '''
+    
 
     def from_ace(read_path, optimization_number=None, sort_optimizations=True,
                  align_optimizations=True):
@@ -198,8 +199,12 @@ class RacMap():
 
             if sr_names is not None:
               sr_names = ro.StrVector(sr_names)
+            else:
+              sr_names = rNULL
             if ag_names is not None:
               ag_names = ro.StrVector(ag_names)
+            else:
+              ag_names = rNULL
 
             ag_coords_r = ro.numpy2ri.numpy2rpy(ag_coords)
             sr_coords_r = ro.numpy2ri.numpy2rpy(sr_coords)
@@ -321,7 +326,8 @@ class RacMap():
         new_map = RacMap(titer_table = self.titer_table.T)
 
         if styles is None:
-            styles = ['outlines','fills','shapes','sizes', 'groups']
+            styles = ['outlines','fills','shapes','sizes', 'groups',
+                      'sequences','ids']
 
         for style in styles:
             new_map.__setattr__(f'sr_{style}',
@@ -517,6 +523,26 @@ class RacMap():
 
         return coordinated_antigen_indices
 
+    @property
+    def coordinated_antigen_indices(self):
+
+        '''
+        sera for which numer of measured titers >= map dimensions
+        '''
+
+        s1 = self.shape[0]
+        coordinated_antigen_indices = []
+        ndims = self.number_of_dimensions
+        titers = self.titer_table.values.astype(str)
+
+        for i in range(s1):
+            if np.count_nonzero((np.char.find(titers[i,:],'*')==-1) &
+                                (np.char.find(titers[i,:],'<')==-1)
+                                )>=ndims:
+                coordinated_antigen_indices.append(i)
+
+        return coordinated_antigen_indices
+
 
     @property
     def well_coordinated_titer_locations(self):
@@ -673,6 +699,26 @@ class RacMap():
     def column_bases(self):
         return conversion.return_list(Racmacs.colBases(self._acmap_R))
 
+    def stress_table(self, optimization_number=0):
+      stress_table_R = Racmacs.stressTable(self._acmap_R, 
+                                          optimization_number=optimization_number+1)
+      row_names = self.ag_names
+      col_names = self.sr_names
+      stress_table = conversion.return_list(stress_table_R)
+
+
+      s1 = len(row_names)
+      s2 = len(col_names)
+
+      stress_table = np.reshape(np.array(stress_table),(s2,s1)).T
+      stress_table = pd.DataFrame(stress_table,index=row_names, columns=col_names)
+      
+      I =  np.char.find(self.titer_table.values.astype(str),'*')==0
+                            
+      stress_table[I] = np.nan
+
+      return stress_table
+
     def distance_types(self):
 
       titer_table = self.titer_table.values
@@ -684,18 +730,31 @@ class RacMap():
 
       return distance_types
 
-    def table_distances(self):
+    def table_distances(self, df=False):
         distances = np.reshape(np.array(Racmacs.tableDistances(self._acmap_R)),
                                (self.num_antigens, self.num_sera), order='F')
+
+        distances = distances.astype(object)
+        distances[distances=='NA'] = 'nan'
 
         distances =\
           np.vectorize(lambda s: float(s) if s[0] not in ['<','>','*'] else np.nan if
                        s=='*' else float(s[1:]))(distances)
+          
+        if df:
+          distances = pd.DataFrame(distances, index=self.ag_names,
+                                   columns=self.sr_names)
 
         return distances
 
-    def map_distances(self, optimization_number=0):
-        return np.array(Racmacs.mapDistances(self._acmap_R, optimization_number+1))
+    def map_distances(self, optimization_number=0, df=False):
+        md = np.array(Racmacs.mapDistances(self._acmap_R, optimization_number+1))
+        
+        if df:
+          md = pd.DataFrame(md, index=self.ag_names,
+                            columns=self.sr_names)
+
+        return md
 
 
     def predicted_log_titers(self, optimization_number=0):
@@ -812,6 +871,9 @@ class RacMap():
     def _get_sr_groups(self):
 
         sr_groups_factor = Racmacs.srGroups(self._acmap_R)
+        
+        if sr_groups_factor==rNULL:
+          return None
 
         return [sr_groups_factor.levels[x-1] for x in sr_groups_factor]
 
@@ -819,10 +881,15 @@ class RacMap():
     def _get_ag_groups(self):
 
         ag_groups_factor = Racmacs.agGroups(self._acmap_R)
+        
+        if ag_groups_factor==rNULL:
+          return None
 
         return [ag_groups_factor.levels[x-1] for x in ag_groups_factor]
 
-
+    def _get_fixed_col_bases(self):
+        return conversion.return_list(Racmacs.fixedColBases(self._acmap_R))
+    
     def _get_dilution_stepsize(self):
         return Racmacs.dilutionStepsize(self._acmap_R)[0]
 
@@ -874,6 +941,10 @@ class RacMap():
 
     def _get_ag_sequences(self):
       seqs = np.array(Racmacs.agSequences(self._acmap_R))
+      
+      if seqs.size==0:
+        return None
+      
       size = seqs.size
       nrows = self.num_antigens
       ncols = int(size/nrows)
@@ -881,7 +952,12 @@ class RacMap():
       return np.reshape(seqs, (ncols, nrows)).T
 
     def _get_sr_sequences(self):
+      
       seqs = np.array(Racmacs.srSequences(self._acmap_R))
+      
+      if seqs.size==0:
+        return None
+      
       size = seqs.size
       nrows = self.num_sera
       ncols = int(size/nrows)
@@ -916,6 +992,11 @@ class RacMap():
     def _set_ag_groups(self, val):
         set_method = r("`agGroups<-`")
         self._acmap_R = set_method(self._acmap_R, ro.StrVector(val))
+
+    def _set_fixed_col_bases(self, val, optimization_number=0):
+        set_method = r("`fixedColBases<-`")
+        self._acmap_R = set_method(self._acmap_R, optimization_number+1,
+                                   ro.FloatVector(val))
 
 
     def _set_dilution_stepsize(self, val):
@@ -1036,6 +1117,7 @@ class RacMap():
         self._acmap_R = set_method(self._acmap_R, sequences)
 
 
+
     ag_sequences = property(_get_ag_sequences, _set_ag_sequences)
     sr_sequences = property(_get_sr_sequences, _set_sr_sequences)
     ag_names = property(_get_ag_names, _set_ag_names)
@@ -1045,6 +1127,7 @@ class RacMap():
     sr_ids = property(_get_sr_ids, _set_sr_ids)
     sr_groups = property(_get_sr_groups, _set_sr_groups)
     ag_groups = property(_get_ag_groups, _set_ag_groups)
+    fixed_col_bases = property(_get_fixed_col_bases, _set_fixed_col_bases)
     dilution_stepsize = property(_get_dilution_stepsize, _set_dilution_stepsize)
     ag_reactivity_adjustments = property(_get_ag_reactivity_adjustments, _set_ag_reactivity_adjustments)
     sr_outlines = property(_get_sr_outlines, _set_sr_outlines)
