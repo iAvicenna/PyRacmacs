@@ -78,9 +78,9 @@ def make_map_from_table(
         assert titer_weights.shape==titer_table.shape,\
           "titer_table and titer_weights must have the same shape"
 
-        ro.numpy2ri.activate()
-        titer_weights = ro.r.matrix(titer_weights, nrow=titer_weights.shape[0],
-                                    ncol=titer_weights.shape[1])
+        with ro.conversion.localconverter(ro.default_converter + ro.numpy2ri.converter):
+            titer_weights = ro.r.matrix(titer_weights, nrow=titer_weights.shape[0],
+                                        ncol=titer_weights.shape[1])
 
 
     if isinstance(options,dict):
@@ -131,9 +131,9 @@ def optimize_map(racmap, number_of_dimensions: int=2,
         assert titer_weights.shape==racmap.shape,\
           "titer_table and titer_weights must have the same shape"
 
-        ro.numpy2ri.activate()
-        titer_weights = ro.r.matrix(titer_weights, nrow=titer_weights.shape[0],
-                                    ncol=titer_weights.shape[1])
+        with ro.conversion.localconverter(ro.default_converter + ro.numpy2ri.converter):
+            titer_weights = ro.r.matrix(titer_weights, nrow=titer_weights.shape[0],
+                                        ncol=titer_weights.shape[1])
 
     if isinstance(options,dict):
         options = RacOptimizerOptions(**options)
@@ -151,7 +151,6 @@ def optimize_map(racmap, number_of_dimensions: int=2,
                                           verbose=verbose,
                                           options=options.options_R
                                           )
-    ro.numpy2ri.deactivate()
     optimized_racmap = RacMap(optimized_map_R)
 
     return optimized_racmap
@@ -166,9 +165,9 @@ def relax_map(acmap, optimization_number: int=0, fixed_antigens: bool=False,
     if titer_weights is None:
         titer_weights = rNULL
     else:
-        ro.numpy2ri.activate()
-        titer_weights = ro.r.matrix(titer_weights, nrow=titer_weights.shape[0],
-                                    ncol=titer_weights.shape[1])
+        with ro.conversion.localconverter(ro.default_converter + ro.numpy2ri.converter):
+            titer_weights = ro.r.matrix(titer_weights, nrow=titer_weights.shape[0],
+                                        ncol=titer_weights.shape[1])
 
     if options is None:
         options = {}
@@ -185,7 +184,6 @@ def relax_map(acmap, optimization_number: int=0, fixed_antigens: bool=False,
                                      fixed_sera=fixed_sera,
                                      titer_weights=titer_weights,
                                      options=options.options_R)
-    ro.numpy2ri.deactivate()
 
     relaxed_map = RacMap(relaxed_map_R)
 

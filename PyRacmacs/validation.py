@@ -318,17 +318,15 @@ def check_hemisphering(racmap, optimization_number=0, grid_spacing=0.25,
     result = ro.conversion.get_conversion().rpy2py(result_R)
 
 
-  ag_diagnostics=\
-    list(result["optimizations"].items())[optimization_number][1]["ag_diagnostics"]
+  optimization = result.getbyname("optimizations")[optimization_number]
 
   ag_names = racmap.ag_names
   sr_names = racmap.sr_names
 
-  ag_diagnostics = {ag:odict_to_dict(val[1]) for ag,val in zip(ag_names, ag_diagnostics.items())}
+  ag_diagnostics = odict_to_dict(optimization.getbyname("ag_diagnostics"))
+  sr_diagnostics = odict_to_dict(optimization.getbyname("sr_diagnostics"))
 
-  sr_diagnostics=\
-    list(result["optimizations"].items())[optimization_number][1]["sr_diagnostics"]
-
-  sr_diagnostics = {sr:odict_to_dict(val[1]) for sr,val in zip(sr_names, sr_diagnostics.items())}
+  ag_diagnostics = {ag:diag for ag,diag in zip(ag_names, ag_diagnostics)}
+  sr_diagnostics = {sr:diag for sr,diag in zip(sr_names, sr_diagnostics)}
 
   return sr_diagnostics, ag_diagnostics
